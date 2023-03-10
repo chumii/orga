@@ -2,13 +2,17 @@ import json
 import requests
 import urllib.parse
 import sqlite3
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 conn = sqlite3.connect('whatever.sqlite')
 cursor = conn.cursor()
 
 def bnet_auth():
-    client_id = ""
-    client_secret = ""
+    client_id = os.getenv('BNET_CLIENT_ID')
+    client_secret =  os.getenv('BNET_CLIENT_SECRET')
 
     oauth_url = "https://oauth.battle.net/authorize"
     token_url = "https://oauth.battle.net/token"

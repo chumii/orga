@@ -1,6 +1,10 @@
 import requests
 import sqlite3
 import logging
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 conn = sqlite3.connect('whatever.sqlite')
 cursor = conn.cursor()
@@ -32,7 +36,7 @@ def get_roster():
 
     roster = []
 
-    api_key = ""
+    api_key = os.getenv('AUDIT_API_KEY')
     url_roster = "https://wowaudit.com/v1/characters"
     headers = {
                 'Accept': 'application/json',
