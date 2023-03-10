@@ -3,6 +3,7 @@ import json
 import sqlite3
 from bnet_api import add_single_item_by_id
 from datetime import date, datetime
+from helper import open_db, close_db
 # from audit import get_roster
 
 # raid_url = 'https://www.raidbots.com/reports/ew56A5zYveBB31LaEVdHQg'
@@ -30,12 +31,10 @@ def get_player_spec(report_url):
 
 #get item id by name from database
 def get_item_id(name_string):
-    conn = sqlite3.connect("whatever.sqlite")
-    c = conn.cursor()
-    c.execute("SELECT * FROM items WHERE item_name = ?", (name_string, ))
-    item = c.fetchone()
-    conn.commit()
-    conn.close()
+    conn, cursor = open_db()
+    cursor.execute("SELECT * FROM items WHERE item_name = ?", (name_string, ))
+    item = cursor.fetchone()
+    close_db(conn, cursor)
     item_id = item[0]
     return item_id
 
@@ -53,14 +52,13 @@ def get_sim_results(report_url):
     items = sim_data['sim']['profilesets']['results']
     character_name = sim_data['sim']['players'][0]['name'].capitalize()
 
-    conn = sqlite3.connect('whatever.sqlite')
-    cu = conn.cursor()    
+    conn, cursor = open_db()
+    character_id = cursor.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[0]
+    close_db(conn, cursor)
 
-    character_id = cu.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[0]
-    character_current_dps = cu.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[5]
-
-    conn.commit()
-    conn.close()
+    conn, cursor = open_db()
+    character_current_dps = cursor.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[5]
+    close_db(conn, cursor)    
         
     item_list = []
 
@@ -68,17 +66,17 @@ def get_sim_results(report_url):
         url_parts = item['name'].split("/")
         item_id = url_parts[3]
         
-        conn = sqlite3.connect('whatever.sqlite')
-        cu = conn.cursor()
-        
-        
-        cu.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
-        db_item = cu.fetchone()
+        conn, cursor = open_db()        
+        cursor.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
+        db_item = cursor.fetchone()
+        close_db(conn, cursor)
         
         if db_item == None:
-            add_single_item_by_id(item_id, cu)
-            cu.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
-            db_item = cu.fetchone()
+            conn, cursor = open_db()
+            add_single_item_by_id(item_id, cursor)
+            cursor.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
+            db_item = cursor.fetchone()
+            close_db(conn, cursor)
         else:
             pass
             
@@ -98,9 +96,9 @@ def get_sim_results(report_url):
         #     c.execute(f"UPDATE sim_results SET sim_dps='{sim_dps}', upgrade_perc='{upgrade_perc}', updatedAt='{today_formatted}' WHERE item_id='{item_id}' AND character={character_id}")
         #     # print("updated")
         # elif not db_data:
-        cu.execute('INSERT INTO sim_results (item_id, character, character_name, sim_dps, upgrade_perc, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', (item_id, character_id, character_name, sim_dps, upgrade_perc, today_formatted))
-        conn.commit()
-        conn.close()
+        conn, cursor = open_db()
+        cursor.execute('INSERT INTO sim_results (item_id, character, character_name, sim_dps, upgrade_perc, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', (item_id, character_id, character_name, sim_dps, upgrade_perc, today_formatted))
+        close_db(conn, cursor)
 
     #cu.close()
     # conn.commit()

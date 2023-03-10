@@ -5,6 +5,7 @@ from qt.frm_main import Ui_frm_main
 from audit import db_update_roster
 from raidbots import get_current_dps, get_player_spec, get_sim_results
 from datetime import date, datetime
+from helper import open_db, close_db
 import logging
 import sqlite3
 
@@ -104,14 +105,10 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     #update roster rows
     def update_sims(self):
-        conn = sqlite3.connect('whatever.sqlite')
-        cursor = conn.cursor()
-
+        conn, cursor = open_db()
         cursor.execute("SELECT * FROM roster")
         roster = cursor.fetchall()
-
-        conn.commit()
-        conn.close()
+        close_db(conn, cursor)
         
         today = datetime.today()
         today_formatted = today.strftime("%d.%m.%Y, %H:%M")
@@ -139,13 +136,10 @@ class Frm_main(QMainWindow, Ui_frm_main):
             
             current_mean_dps = (raid_dps + mplus_dps) / 2
 
-            conne = sqlite3.connect('whatever.sqlite')
-            cursor = conne.cursor()
-        
-            # cursor.execute("UPDATE roster SET spec = ?, current_dps = ?, updatedAt = ? WHERE id = ?", (spec, int(current_mean_dps), today_formatted, roster_id))
-            cursor.execute(f"UPDATE roster SET spec='{spec}', current_dps='{int(current_mean_dps)}', updatedAt='{today_formatted}' WHERE id='{roster_id}'")
-            conne.commit()
-            conne.close()
+            conn, cursor = open_db()        
+            cursor.execute("UPDATE roster SET spec = ?, current_dps = ?, updatedAt = ? WHERE id = ?", (spec, int(current_mean_dps), today_formatted, roster_id))
+            # cursor.execute(f"UPDATE roster SET spec='{spec}', current_dps='{int(current_mean_dps)}', updatedAt='{today_formatted}' WHERE id='{roster_id}'")
+            close_db(conn, cursor)
 
             if raid_url and mplus_url:
                 get_sim_results(raid_url)
@@ -159,17 +153,15 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # add items to item list
     def grab_all_items(self, filter_dungeon="", filter_encounter=""):
-        conn = sqlite3.connect("whatever.sqlite")
-        c = conn.cursor()
+        conn, cursor = open_db()
         if filter_dungeon == "" and filter_encounter == "":
-            c.execute("SELECT * FROM items")
+            cursor.execute("SELECT * FROM items")
         elif filter_dungeon != "" and filter_encounter == "":
-            c.execute("SELECT * FROM items WHERE item_source_dungeon = ?", (filter_dungeon, ))
+            cursor.execute("SELECT * FROM items WHERE item_source_dungeon = ?", (filter_dungeon, ))
         elif filter_dungeon != "" and filter_encounter != "":
-            c.execute("SELECT * FROM items WHERE item_source_dungeon = ? AND item_source_encounter = ?", (filter_dungeon, filter_encounter))
-        items = c.fetchall()
-        conn.commit()
-        conn.close()
+            cursor.execute("SELECT * FROM items WHERE item_source_dungeon = ? AND item_source_encounter = ?", (filter_dungeon, filter_encounter))
+        items = cursor.fetchall()
+        close_db(conn, cursor)
 
         self.list_items.clear()
 
@@ -180,12 +172,10 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # add dungeons to dropdown
     def grab_all_dungeons(self):
-        conn = sqlite3.connect("whatever.sqlite")
-        c = conn.cursor()
-        c.execute("SELECT DISTINCT item_source_dungeon FROM items")
-        dungeons = c.fetchall()
-        conn.commit()
-        conn.close()
+        conn, cursor = open_db()
+        cursor.execute("SELECT DISTINCT item_source_dungeon FROM items")
+        dungeons = cursor.fetchall()
+        close_db(conn, cursor)
         
         dungeons_sorted = sorted(dungeons, key=lambda x: x[0])
 
@@ -194,15 +184,13 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # add encounter to dropdown
     def grab_all_encounter(self, filter=""):
-        conn = sqlite3.connect("whatever.sqlite")
-        c = conn.cursor()
+        conn, cursor = open_db()
         if filter == "":
-            c.execute("SELECT DISTINCT item_source_encounter FROM items")
+            cursor.execute("SELECT DISTINCT item_source_encounter FROM items")
         else:
-            c.execute("SELECT DISTINCT item_source_encounter FROM items WHERE item_source_dungeon = ?", (filter, ))
-        encounters = c.fetchall()
-        conn.commit()
-        conn.close()
+            cursor.execute("SELECT DISTINCT item_source_encounter FROM items WHERE item_source_dungeon = ?", (filter, ))
+        encounters = cursor.fetchall()
+        close_db(conn, cursor)
         
         encounters_sorted = sorted(encounters, key=lambda x: x[0])
 
@@ -227,11 +215,10 @@ class Frm_main(QMainWindow, Ui_frm_main):
     def on_list_item_clicked(self, item):
         item_name = item.text()
 
-        conn = sqlite3.connect("whatever.sqlite")
-        c = conn.cursor()
-        c.execute("SELECT * FROM items WHERE item_name = ?", (item_name, ))
-        item = c.fetchone()
-        
+        conn, cursor = open_db()
+        cursor.execute("SELECT * FROM items WHERE item_name = ?", (item_name, ))
+        item = cursor.fetchone()
+        close_db(conn, cursor)
 
         self.text_item_id.setText(str(item[0]))
         self.text_item_name.setText(str(item[1]))
@@ -239,34 +226,18 @@ class Frm_main(QMainWindow, Ui_frm_main):
         self.text_item_slot.setText(str(item[3]))
         self.text_item_source_encounter.setText(str(item[4]))
 
-        # self.filter_tbl_sim_results(str(item[0]),c)
-
         self.proxy_model.setFilterFixedString(str(item[0]))
-        
-
-        conn.commit()
-        conn.close()
-
-    #filter tbl_sim_results
-    def filter_tbl_sim_results(self, item_id, c):
-        
-        c.execute("SELECT * FROM sim_results WHERE item_id = ?", (item_id, ))
-        item = c.fetchall()
-        # print("test")
-        # print(item)
 
     #search button
     def search_items(self):
         search_term = self.text_item_search.text()
         # print(type(search_term))
 
-        conn = sqlite3.connect("whatever.sqlite")
-        c = conn.cursor()
+        conn, cursor = open_db()
         query = '''SELECT * FROM items WHERE item_id = ? OR item_name = ?'''
-        c.execute(query, (search_term, search_term))
-        item = c.fetchone()
-        conn.commit()
-        conn.close()
+        cursor.execute(query, (search_term, search_term))
+        item = cursor.fetchone()
+        close_db(conn, cursor)
         
         if item is not None:
             matching_item = self.list_items.findItems(item[1], Qt.MatchContains)
