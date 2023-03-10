@@ -145,9 +145,7 @@ class Frm_main(QMainWindow, Ui_frm_main):
                 get_sim_results(raid_url)
                 get_sim_results(mplus_url)
 
-        #####################################################################
-        ### data.json von raidbots nur 1x holen und results nicht von url ### 
-        #####################################################################            
+         
         self.mod_roster.select()
         self.mod_sim_results.select()
 
