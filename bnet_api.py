@@ -3,12 +3,13 @@ import requests
 import urllib.parse
 import sqlite3
 import os
+from helper import open_cursor, close_cursor, db_query_wait
 from dotenv import load_dotenv
 
 load_dotenv()
 
-conn = sqlite3.connect('whatever.sqlite')
-cursor = conn.cursor()
+# conn = sqlite3.connect('whatever.sqlite')
+# cursor = conn.cursor()
 
 def bnet_auth():
     client_id = os.getenv('BNET_CLIENT_ID')
@@ -51,7 +52,7 @@ def get_item_name_by_id(item_id, locale = "en_US"):
     name = response_obj['name']
     return name
 
-def add_single_item_by_id(item_id, cursor, locale = "en_US"):
+def add_single_item_by_id(item_id, conn, locale = "en_US"):
     token = bnet_auth()    
     item_endpoint = f'https://eu.api.blizzard.com/data/wow/item/{item_id}?namespace=static-eu&locale={locale}&access_token={token}'
 
@@ -66,14 +67,24 @@ def add_single_item_by_id(item_id, cursor, locale = "en_US"):
 
     # conn = sqlite3.connect('whatever.sqlite')
     # cursor = conn.cursor()
-
-    cursor.execute("SELECT item_id FROM items WHERE item_id = ?", (item_id,))
-    result = cursor.fetchone()
+    
+    # cursor = open_cursor(conn)
+    # cursor.execute("SELECT item_id FROM items WHERE item_id = ?", (item_id,))
+    # result = cursor.fetchone()
+    # close_cursor(conn, cursor)
+    query = "SELECT item_id FROM items WHERE item_id = ?"
+    params = (item_id,)
+    result = db_query_wait(query, params=params, fetch="fetchone")
 
     # print(result)
     if result is None:
-        cursor.execute('INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)', (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, ))
+        # cursor = open_cursor(conn)
+        # cursor.execute('INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)', (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, ))
+        # close_cursor(conn, cursor)
         # print(f"{item_id} wurde hinzugefügt")
+        query = "INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)"
+        params = (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, )
+        db_query_wait(query, params=params)
     # else:
     #     print(f"{item_id} ist bereits vorhanden")
 
@@ -220,7 +231,7 @@ def get_all_items(journalExpansionId):
 # dragonflight journal id 503
 # m+ dungeons journal id 505
 
-def db_update_items():
+def db_update_items(conn):
     journal_ids = ["503", "505"]
 
     all_items = []
@@ -231,17 +242,23 @@ def db_update_items():
 
     for sublist in all_items:    
         for item in sublist:
-            cursor.execute("SELECT item_id FROM items WHERE item_id = ?", (item['item_id'],))
-            result = cursor.fetchone()
-
+            # cursor = open_cursor(conn)
+            # cursor.execute("SELECT item_id FROM items WHERE item_id = ?", (item['item_id'],))
+            # result = cursor.fetchone()
+            # close_cursor(conn, cursor)
             # print(result)
+            query = "SELECT item_id FROM items WHERE item_id = ?"
+            params = (item['item_id'],)
+            result = db_query_wait(query, params=params, fetch="fetchone")
             if result is None:
-                cursor.execute('INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)', (item['item_id'], item['item_name'], item['item_source_dungeon'], item['item_source_encounter'], item['item_slot'], ))
+                # cursor = open_cursor(conn)
+                # cursor.execute('INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)', (item['item_id'], item['item_name'], item['item_source_dungeon'], item['item_source_encounter'], item['item_slot'], ))
+                # close_cursor(conn, cursor)
+                query = "INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)"
+                params = (item['item_id'], item['item_name'], item['item_source_dungeon'], item['item_source_encounter'], item['item_slot'], )
+                db_query_wait(query, params=params)
                 print(f"{item['item_id']} wurde hinzugefügt")
             else:
                 print(f"{item['item_id']} ist bereits vorhanden")
-
-    conn.commit()
-    conn.close()
 
 # db_update_items()

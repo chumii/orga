@@ -138,6 +138,10 @@ class Ui_frm_main(object):
         self.text_log_viewer.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.text_log_viewer.setReadOnly(True)
         self.tabs_main.addTab(self.tab_log, "")
+        self.btn_test = QPushButton(self.centralwidget)
+        self.btn_test.setObjectName(u"btn_test")
+        self.btn_test.setGeometry(QRect(550, 700, 91, 41))
+        self.btn_test.setFlat(False)
         frm_main.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(frm_main)
         self.menubar.setObjectName(u"menubar")
@@ -154,7 +158,7 @@ class Ui_frm_main(object):
 
         self.retranslateUi(frm_main)
 
-        self.tabs_main.setCurrentIndex(3)
+        self.tabs_main.setCurrentIndex(0)
 
 
         QMetaObject.connectSlotsByName(frm_main)
@@ -178,6 +182,7 @@ class Ui_frm_main(object):
         self.tabs_main.setTabText(self.tabs_main.indexOf(self.tab_items), QCoreApplication.translate("frm_main", u"Items", None))
         self.tabs_main.setTabText(self.tabs_main.indexOf(self.tab_advanced), QCoreApplication.translate("frm_main", u"Advanced", None))
         self.tabs_main.setTabText(self.tabs_main.indexOf(self.tab_log), QCoreApplication.translate("frm_main", u"Log", None))
+        self.btn_test.setText(QCoreApplication.translate("frm_main", u"Test", None))
         self.menuDatei.setTitle(QCoreApplication.translate("frm_main", u"Datei", None))
     # retranslateUi
 

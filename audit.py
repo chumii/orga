@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import date, datetime
 from dotenv import load_dotenv
-from helper import open_db, close_db
+from helper import open_cursor, close_cursor, db_query_wait
 
 load_dotenv()
 
@@ -16,29 +16,41 @@ load_dotenv()
 #     for row in rows:
 #         print(row)
 
-def db_update_roster():
-    conn, cursor = open_db()
+def db_update_roster(conn):   
 
     today = datetime.today()
     today_formatted = today.strftime("%d.%m.%Y, %H:%M")
 
     roster = get_roster()
     for name in roster:
-       
-        cursor.execute("SELECT id FROM roster WHERE name = ?", (name,))
-        result = cursor.fetchone()
-
+        # cursor = open_cursor(conn)
+        # cursor.execute("SELECT id FROM roster WHERE name = ?", (name,))
+        # result = cursor.fetchone()
+        # close_cursor(conn, cursor)
+        query = "SELECT id FROM roster WHERE name = ?"
+        params = (name,)
+        result = db_query_wait(query, params=params, fetch="fetchone")
 
         # print(result)
         if result is None:
-            cursor.execute('INSERT INTO roster (name, updatedAt) VALUES (?, ?)', (name, today_formatted))
+            # cursor = open_cursor(conn)
+            # cursor.execute('INSERT INTO roster (name, updatedAt) VALUES (?, ?)', (name, today_formatted))
+            # close_cursor(conn, cursor)
+            query = "INSERT INTO roster (name, updatedAt) VALUES (?, ?)"
+            params = (name, today_formatted)
+            db_query_wait(query, params=params)
             logging.info('%s added to roster', name)
             # print(f'{name} wurde hinzugefügt')
         else:
-            cursor.execute('UPDATE roster SET name = ?, updatedAt = ? WHERE id = ?', (name, today_formatted, result[0]))
+            # cursor = open_cursor(conn)
+            # cursor.execute('UPDATE roster SET name = ?, updatedAt = ? WHERE id = ?', (name, today_formatted, result[0]))
+            # close_cursor(conn, cursor)
+            query = "UPDATE roster SET name = ?, updatedAt = ? WHERE id = ?"
+            params = (name, today_formatted, result[0])
+            db_query_wait(query, params=params)
             logging.info('%s already in roster', name)
     
-    close_db(conn, cursor)
+    
 
 def get_roster():
 

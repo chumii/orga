@@ -3,7 +3,7 @@ import json
 import sqlite3
 from bnet_api import add_single_item_by_id
 from datetime import date, datetime
-from helper import open_db, close_db
+from helper import open_cursor, close_cursor, db_query_wait
 # from audit import get_roster
 
 # raid_url = 'https://www.raidbots.com/reports/ew56A5zYveBB31LaEVdHQg'
@@ -30,17 +30,20 @@ def get_player_spec(report_url):
     return player_spec
 
 #get item id by name from database
-def get_item_id(name_string):
-    conn, cursor = open_db()
-    cursor.execute("SELECT * FROM items WHERE item_name = ?", (name_string, ))
-    item = cursor.fetchone()
-    close_db(conn, cursor)
+def get_item_id(name_string, conn):
+    # cursor = open_cursor(conn)
+    # cursor.execute("SELECT * FROM items WHERE item_name = ?", (name_string, ))
+    # item = cursor.fetchone()
+    # close_cursor(conn, cursor)
+    query = "SELECT * FROM items WHERE item_name = ?"
+    params = (name_string, )
+    item = db_query_wait(query, params=params, fetch="fetchone")
     item_id = item[0]
     return item_id
 
 # get_item_id("Mark of Ice")
 
-def get_sim_results(report_url):
+def get_sim_results(report_url, conn):
     today = datetime.today()
     today_formatted = today.strftime("%d.%m.%Y, %H:%M")
     # print(type(today))
@@ -52,13 +55,20 @@ def get_sim_results(report_url):
     items = sim_data['sim']['profilesets']['results']
     character_name = sim_data['sim']['players'][0]['name'].capitalize()
 
-    conn, cursor = open_db()
-    character_id = cursor.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[0]
-    close_db(conn, cursor)
+    # cursor = open_cursor(conn)
+    # character_id = cursor.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[0]
+    # close_cursor(conn, cursor)
+    query = "SELECT * FROM roster WHERE name = ?"
+    params = (character_name, )
+    result = db_query_wait(query, params=params, fetch="fetchone")
+    # print(result)
+    character_id = result[0]
+    character_current_dps = result[5]
+    # print(character_current_dps)
 
-    conn, cursor = open_db()
-    character_current_dps = cursor.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[5]
-    close_db(conn, cursor)    
+    # cursor = open_cursor(conn)
+    # character_current_dps = cursor.execute(f"SELECT * FROM roster WHERE name='{character_name}'").fetchone()[5]
+    # close_cursor(conn, cursor)    
         
     item_list = []
 
@@ -66,17 +76,23 @@ def get_sim_results(report_url):
         url_parts = item['name'].split("/")
         item_id = url_parts[3]
         
-        conn, cursor = open_db()        
-        cursor.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
-        db_item = cursor.fetchone()
-        close_db(conn, cursor)
+        # cursor = open_cursor(conn)        
+        # cursor.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
+        # db_item = cursor.fetchone()
+        # close_cursor(conn, cursor)
+        query = "SELECT * FROM items WHERE item_id = ?"
+        params = (item_id, )
+        db_item = db_query_wait(query, params=params, fetch="fetchone")
         
         if db_item == None:
-            conn, cursor = open_db()
-            add_single_item_by_id(item_id, cursor)
-            cursor.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
-            db_item = cursor.fetchone()
-            close_db(conn, cursor)
+            # cursor = open_cursor(conn)
+            add_single_item_by_id(item_id, conn)
+            # cursor.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
+            # db_item = cursor.fetchone()
+            # close_cursor(conn, cursor)
+            query = "SELECT * FROM items WHERE item_id = ?"
+            params = (item_id, )
+            db_item = db_query_wait(query, params=params, fetch="fetchone")
         else:
             pass
             
@@ -96,10 +112,12 @@ def get_sim_results(report_url):
         #     c.execute(f"UPDATE sim_results SET sim_dps='{sim_dps}', upgrade_perc='{upgrade_perc}', updatedAt='{today_formatted}' WHERE item_id='{item_id}' AND character={character_id}")
         #     # print("updated")
         # elif not db_data:
-        conn, cursor = open_db()
-        cursor.execute('INSERT INTO sim_results (item_id, character, character_name, sim_dps, upgrade_perc, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', (item_id, character_id, character_name, sim_dps, upgrade_perc, today_formatted))
-        close_db(conn, cursor)
-
+        # cursor = open_cursor(conn)
+        # cursor.execute('INSERT INTO sim_results (item_id, character, character_name, sim_dps, upgrade_perc, updatedAt) VALUES (?, ?, ?, ?, ?, ?)', (item_id, character_id, character_name, sim_dps, upgrade_perc, today_formatted))
+        # close_cursor(conn, cursor)
+        query = "INSERT INTO sim_results (item_id, character, character_name, sim_dps, upgrade_perc, updatedAt) VALUES (?, ?, ?, ?, ?, ?)"
+        params = (item_id, character_id, character_name, sim_dps, upgrade_perc, today_formatted)
+        db_query_wait(query, params=params)
     #cu.close()
     # conn.commit()
         # conn.close()

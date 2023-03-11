@@ -5,7 +5,7 @@ from qt.frm_main import Ui_frm_main
 from audit import db_update_roster
 from raidbots import get_current_dps, get_player_spec, get_sim_results
 from datetime import date, datetime
-from helper import open_db, close_db
+from helper import open_cursor, close_cursor, db_query_wait
 import logging
 import sqlite3
 
@@ -14,6 +14,10 @@ logging.basicConfig(filename='whatever.log', level=logging.DEBUG, format='%(asct
 # DB Connection
 db = QtSql.QSqlDatabase.addDatabase("QSQLITE")
 db.setDatabaseName("whatever.sqlite")
+
+conn = sqlite3.connect('whatever.sqlite')
+# conn.isolation_level = None
+# print(conn.isolation_level == None)
 
 # QtMainWindow
 class Frm_main(QMainWindow, Ui_frm_main):
@@ -46,6 +50,7 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
         self.btn_update.clicked.connect(self.update_view)
         self.btn_update_sims.clicked.connect(self.update_sims)
+        self.btn_test.clicked.connect(self.test)
 
         ###### Item Tab ######
 
@@ -100,15 +105,18 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # update roster 
     def update_view(self):
-        db_update_roster()
+        db_update_roster(conn)
         self.mod_roster.select()
 
     #update roster rows
     def update_sims(self):
-        conn, cursor = open_db()
-        cursor.execute("SELECT * FROM roster")
-        roster = cursor.fetchall()
-        close_db(conn, cursor)
+        # cursor = open_cursor(conn)
+        # cursor.execute("SELECT * FROM roster")
+        # roster = cursor.fetchall()
+        # close_cursor(conn, cursor)
+
+        query = "SELECT * FROM roster"
+        roster = db_query_wait(query, fetch="fetchall")
         
         today = datetime.today()
         today_formatted = today.strftime("%d.%m.%Y, %H:%M")
@@ -123,35 +131,48 @@ class Frm_main(QMainWindow, Ui_frm_main):
             if raid_url:
                 spec = get_player_spec(raid_url)
                 raid_dps = get_current_dps(raid_url)
-            elif mplus_url:
+            if mplus_url:
                 spec = get_player_spec(mplus_url)
                 mplus_dps = get_current_dps(mplus_url)
-            else:
+            if raid_url is None and mplus_url is None:
                 spec = "-"
 
-            if raid_url and not mplus_url:
+            if raid_url is not None and mplus_url is None:
                 mplus_dps = raid_dps
-            if mplus_url and not raid_url:
+            elif mplus_url is not None and raid_url is None:
                 raid_dps = mplus_dps
             
             current_mean_dps = (raid_dps + mplus_dps) / 2
 
-            conn, cursor = open_db()        
-            cursor.execute("UPDATE roster SET spec = ?, current_dps = ?, updatedAt = ? WHERE id = ?", (spec, int(current_mean_dps), today_formatted, roster_id))
-            # cursor.execute(f"UPDATE roster SET spec='{spec}', current_dps='{int(current_mean_dps)}', updatedAt='{today_formatted}' WHERE id='{roster_id}'")
-            close_db(conn, cursor)
+            # cursor = open_cursor(conn)        
+            # cursor.execute("UPDATE roster SET spec = ?, current_dps = ?, updatedAt = ? WHERE id = ?", (spec, int(current_mean_dps), today_formatted, roster_id))
+            # # cursor.execute(f"UPDATE roster SET spec='{spec}', current_dps='{int(current_mean_dps)}', updatedAt='{today_formatted}' WHERE id='{roster_id}'")
+            # close_cursor(conn, cursor)
+            query = "UPDATE roster SET spec = ?, current_dps = ?, updatedAt = ? WHERE id = ?"
+            params = (spec, current_mean_dps, today_formatted, roster_id)
+            db_query_wait(query, params=params)
 
             if raid_url and mplus_url:
-                get_sim_results(raid_url)
-                get_sim_results(mplus_url)
+                get_sim_results(raid_url, conn)
+                get_sim_results(mplus_url, conn)
 
-         
+        #####################################################################
+        ### data.json von raidbots nur 1x holen und results nicht von url ### 
+        #####################################################################    
         self.mod_roster.select()
         self.mod_sim_results.select()
 
+    #update roster rows
+    def test(self):
+        lock = conn.execute("PRAGMA schema.locked").fetchone()
+        if lock [0] == 1:
+            print("DB LOCKED")
+        else:
+            print("DB NOT LOCKED")
+
     # add items to item list
     def grab_all_items(self, filter_dungeon="", filter_encounter=""):
-        conn, cursor = open_db()
+        cursor = open_cursor(conn)
         if filter_dungeon == "" and filter_encounter == "":
             cursor.execute("SELECT * FROM items")
         elif filter_dungeon != "" and filter_encounter == "":
@@ -159,7 +180,7 @@ class Frm_main(QMainWindow, Ui_frm_main):
         elif filter_dungeon != "" and filter_encounter != "":
             cursor.execute("SELECT * FROM items WHERE item_source_dungeon = ? AND item_source_encounter = ?", (filter_dungeon, filter_encounter))
         items = cursor.fetchall()
-        close_db(conn, cursor)
+        close_cursor(conn, cursor)
 
         self.list_items.clear()
 
@@ -170,10 +191,10 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # add dungeons to dropdown
     def grab_all_dungeons(self):
-        conn, cursor = open_db()
+        cursor = open_cursor(conn)
         cursor.execute("SELECT DISTINCT item_source_dungeon FROM items")
         dungeons = cursor.fetchall()
-        close_db(conn, cursor)
+        close_cursor(conn, cursor)
         
         dungeons_sorted = sorted(dungeons, key=lambda x: x[0])
 
@@ -182,13 +203,13 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # add encounter to dropdown
     def grab_all_encounter(self, filter=""):
-        conn, cursor = open_db()
+        cursor = open_cursor(conn)
         if filter == "":
             cursor.execute("SELECT DISTINCT item_source_encounter FROM items")
         else:
             cursor.execute("SELECT DISTINCT item_source_encounter FROM items WHERE item_source_dungeon = ?", (filter, ))
         encounters = cursor.fetchall()
-        close_db(conn, cursor)
+        close_cursor(conn, cursor)
         
         encounters_sorted = sorted(encounters, key=lambda x: x[0])
 
@@ -213,10 +234,10 @@ class Frm_main(QMainWindow, Ui_frm_main):
     def on_list_item_clicked(self, item):
         item_name = item.text()
 
-        conn, cursor = open_db()
+        cursor = open_cursor(conn)
         cursor.execute("SELECT * FROM items WHERE item_name = ?", (item_name, ))
         item = cursor.fetchone()
-        close_db(conn, cursor)
+        close_cursor(conn, cursor)
 
         self.text_item_id.setText(str(item[0]))
         self.text_item_name.setText(str(item[1]))
@@ -231,15 +252,14 @@ class Frm_main(QMainWindow, Ui_frm_main):
         search_term = self.text_item_search.text()
         # print(type(search_term))
 
-        conn, cursor = open_db()
+        cursor = open_cursor(conn)
         query = '''SELECT * FROM items WHERE item_id = ? OR item_name = ?'''
         cursor.execute(query, (search_term, search_term))
         item = cursor.fetchone()
-        close_db(conn, cursor)
+        close_cursor(conn, cursor)
         
         if item is not None:
-            matching_item = self.list_items.findItems(item[1], Qt.MatchContains)
-        
+            matching_item = self.list_items.findItems(item[1], Qt.MatchContains)        
 
             if matching_item != None:
                 self.list_items.setCurrentItem(matching_item[0])
@@ -251,6 +271,7 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     #close application
     def closeApplication(self):
+        conn.close()
         QCoreApplication.quit()
     
 app = QApplication()
