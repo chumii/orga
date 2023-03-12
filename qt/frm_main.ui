@@ -24,11 +24,11 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="tab_charaktere">
      <attribute name="title">
-      <string>Charaktere</string>
+      <string>Roster</string>
      </attribute>
      <widget class="QTableView" name="tbl_charaktere">
       <property name="geometry">
@@ -50,24 +50,6 @@
       </property>
       <property name="sortingEnabled">
        <bool>true</bool>
-      </property>
-     </widget>
-     <widget class="QLabel" name="lbl_roster">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>20</y>
-        <width>61</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>12</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>Roster</string>
       </property>
      </widget>
      <widget class="QPushButton" name="btn_update">
@@ -105,7 +87,7 @@
     </widget>
     <widget class="QWidget" name="tab_items">
      <attribute name="title">
-      <string>Items</string>
+      <string>Sim Results</string>
      </attribute>
      <widget class="QComboBox" name="ddown_item_filter_dungeon">
       <property name="geometry">
@@ -364,6 +346,12 @@
       </property>
       <property name="verticalScrollBarPolicy">
        <enum>Qt::ScrollBarAlwaysOn</enum>
+      </property>
+      <property name="horizontalScrollBarPolicy">
+       <enum>Qt::ScrollBarAlwaysOn</enum>
+      </property>
+      <property name="lineWrapMode">
+       <enum>QTextEdit::NoWrap</enum>
       </property>
       <property name="readOnly">
        <bool>true</bool>

@@ -30,20 +30,20 @@ def get_player_spec(report_url):
     return player_spec
 
 #get item id by name from database
-def get_item_id(name_string, conn):
+def get_item_id(db, name_string):
     # cursor = open_cursor(conn)
     # cursor.execute("SELECT * FROM items WHERE item_name = ?", (name_string, ))
     # item = cursor.fetchone()
     # close_cursor(conn, cursor)
     query = "SELECT * FROM items WHERE item_name = ?"
     params = (name_string, )
-    item = db_query_wait(query, params=params, fetch="fetchone")
+    item = db_query_wait(db, query, params=params, fetch="fetchone", func="get_item_id get item by name")
     item_id = item[0]
     return item_id
 
 # get_item_id("Mark of Ice")
 
-def get_sim_results(report_url, conn):
+def get_sim_results(db, report_url):
     today = datetime.today()
     today_formatted = today.strftime("%d.%m.%Y, %H:%M")
     # print(type(today))
@@ -60,7 +60,7 @@ def get_sim_results(report_url, conn):
     # close_cursor(conn, cursor)
     query = "SELECT * FROM roster WHERE name = ?"
     params = (character_name, )
-    result = db_query_wait(query, params=params, fetch="fetchone")
+    result = db_query_wait(db, query, params=params, fetch="fetchone", func="get_sim_results get player from roster by name")
     # print(result)
     character_id = result[0]
     character_current_dps = result[5]
@@ -82,17 +82,17 @@ def get_sim_results(report_url, conn):
         # close_cursor(conn, cursor)
         query = "SELECT * FROM items WHERE item_id = ?"
         params = (item_id, )
-        db_item = db_query_wait(query, params=params, fetch="fetchone")
+        db_item = db_query_wait(db, query, params=params, fetch="fetchone", func="get_sim_results get item by id")
         
         if db_item == None:
             # cursor = open_cursor(conn)
-            add_single_item_by_id(item_id, conn)
+            add_single_item_by_id(db, item_id)
             # cursor.execute("SELECT * FROM items WHERE item_id = ?", (item_id, ))
             # db_item = cursor.fetchone()
             # close_cursor(conn, cursor)
             query = "SELECT * FROM items WHERE item_id = ?"
             params = (item_id, )
-            db_item = db_query_wait(query, params=params, fetch="fetchone")
+            db_item = db_query_wait(db, query, params=params, fetch="fetchone", func="get_sim_results db_item None")
         else:
             pass
             
@@ -117,7 +117,7 @@ def get_sim_results(report_url, conn):
         # close_cursor(conn, cursor)
         query = "INSERT INTO sim_results (item_id, character, character_name, sim_dps, upgrade_perc, updatedAt) VALUES (?, ?, ?, ?, ?, ?)"
         params = (item_id, character_id, character_name, sim_dps, upgrade_perc, today_formatted)
-        db_query_wait(query, params=params)
+        db_query_wait(db, query, params=params, func="get_sim_results insert sim result")
     #cu.close()
     # conn.commit()
         # conn.close()

@@ -16,12 +16,13 @@ load_dotenv()
 #     for row in rows:
 #         print(row)
 
-def db_update_roster(conn):   
+def db_update_roster(db):   
 
     today = datetime.today()
     today_formatted = today.strftime("%d.%m.%Y, %H:%M")
 
     roster = get_roster()
+    # print(roster)
     for name in roster:
         # cursor = open_cursor(conn)
         # cursor.execute("SELECT id FROM roster WHERE name = ?", (name,))
@@ -29,7 +30,7 @@ def db_update_roster(conn):
         # close_cursor(conn, cursor)
         query = "SELECT id FROM roster WHERE name = ?"
         params = (name,)
-        result = db_query_wait(query, params=params, fetch="fetchone")
+        result = db_query_wait(db, query, params=params, fetch="fetchone", func="db_update_roster get player from roster")
 
         # print(result)
         if result is None:
@@ -38,7 +39,7 @@ def db_update_roster(conn):
             # close_cursor(conn, cursor)
             query = "INSERT INTO roster (name, updatedAt) VALUES (?, ?)"
             params = (name, today_formatted)
-            db_query_wait(query, params=params)
+            db_query_wait(db, query, params=params, func="db_update_roster insert new player")
             logging.info('%s added to roster', name)
             # print(f'{name} wurde hinzugefügt')
         else:
@@ -47,7 +48,7 @@ def db_update_roster(conn):
             # close_cursor(conn, cursor)
             query = "UPDATE roster SET name = ?, updatedAt = ? WHERE id = ?"
             params = (name, today_formatted, result[0])
-            db_query_wait(query, params=params)
+            db_query_wait(db, query, params=params, func="db_update_roster update player")
             logging.info('%s already in roster', name)
     
     
@@ -66,6 +67,7 @@ def get_roster():
     data_roster = requests.get(url_roster, headers=headers).json()
 
     for player in data_roster:
+        # print(player)
         roster.append(player['name'])
 
 

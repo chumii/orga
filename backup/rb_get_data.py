@@ -11,7 +11,7 @@ def get_current_dps(report_url):
 
     return current_dps
 
-def get_item_id(name_string):
+def get_item_id(db, name_string):
     parts = name_string.split('/')
     item_id = parts[3]
     return item_id
@@ -26,7 +26,7 @@ def get_item_dps(report_url):
     item_list = []
 
     for item in items:
-        item_id = get_item_id(item['name'])
+        item_id = get_item_id(db, item['name'])
         item_name = get_item_name_by_id(item_id)
         item_dps = item['mean']
 

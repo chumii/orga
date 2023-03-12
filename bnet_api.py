@@ -32,16 +32,31 @@ def bnet_auth():
 # test = 109873 # sharpeye-bracers
 
 #item 
-def get_item_slot(itemId, locale = "en_US"):
+def get_item_info(itemId, locale = "en_US"):
     token = bnet_auth()  
     item_endpoint = f'https://us.api.blizzard.com/data/wow/item/{itemId}?namespace=static-us&locale={locale}&access_token={token}'
     
     response = requests.get(item_endpoint)
-    response_obj = json.loads(response.content)
+    item = json.loads(response.content)
 
-    item_slot = response_obj['inventory_type']['type']
+    item_info = {}
+
+    item_info['slot']= item['inventory_type']['type'] 
+    item_info['subclass'] = item['item_subclass']['name']
+
+    if 'preview_item' in item and 'stats' in item['preview_item']:
+        item_stats_response = item['preview_item']['stats']
+    else:
+        item_stats_response = "None" 
+
+    # item_stats_response = item['preview_item']['stats']
+    item_stats_dict = {"stats": item_stats_response}
+
+    item_info['stats'] = json.dumps(item_stats_dict)
     
-    return item_slot
+    return item_info
+
+# get_item_info(109873)
 
 def get_item_name_by_id(item_id, locale = "en_US"):
     token = bnet_auth()    
@@ -52,54 +67,46 @@ def get_item_name_by_id(item_id, locale = "en_US"):
     name = response_obj['name']
     return name
 
-def add_single_item_by_id(item_id, conn, locale = "en_US"):
+
+def add_single_item_by_id(db, item_id, locale = "en_US"):
     token = bnet_auth()    
     item_endpoint = f'https://eu.api.blizzard.com/data/wow/item/{item_id}?namespace=static-eu&locale={locale}&access_token={token}'
 
     response = requests.get(item_endpoint)
-    response_obj = json.loads(response.content)
+    item = json.loads(response.content)
 
     item_id = item_id
-    item_name = response_obj['name']
+    item_name = item['name']
     item_source_dungeon = "BOE"
-    item_slot = response_obj['inventory_type']['type']
-    item_source_encounter = "Trash"
+    item_slot = item['inventory_type']['type']
+    item_source_encounter = "BOE"
+    item_subclass = item['item_subclass']['name']
 
-    # conn = sqlite3.connect('whatever.sqlite')
-    # cursor = conn.cursor()
+    item_stats_response = item['preview_item']['stats']
+    # print(type(item_stats_response))
+
+    item_stats_dict = {"stats": item_stats_response}
+    # json.loads(item_stats_response)
+    item_stats = json.dumps(item_stats_dict)
     
-    # cursor = open_cursor(conn)
-    # cursor.execute("SELECT item_id FROM items WHERE item_id = ?", (item_id,))
-    # result = cursor.fetchone()
-    # close_cursor(conn, cursor)
+    # {"stats": [{"type": {"type": "STAMINA", "name": "Stamina"}, "value": 528, "display": {"display_string": "+528 Stamina", "color": {"r": 255, "g": 255, "b": 255, "a": 1.0}}}, {"type": {"type": "HASTE_RATING", "name": "Haste"}, "value": 793, "is_equip_bonus": true, "display": {"display_string": "+793 Haste", "color": {"r": 0, "g": 255, "b": 0, "a": 1.0}}}, {"type": {"type": "VERSATILITY", "name": "Versatility"}, "value": 195, "is_equip_bonus": true, "display": {"display_string": "+195 Versatility", "color": {"r": 0, "g": 255, "b": 0, "a": 1.0}}}]}
+
+    # item_stats = item['preview_item']['stats']
+
     query = "SELECT item_id FROM items WHERE item_id = ?"
     params = (item_id,)
-    result = db_query_wait(query, params=params, fetch="fetchone")
+    result = db_query_wait(db, query, params=params, fetch="fetchone", func="add_single_item_by_id get item by id")
 
-    # print(result)
+   
     if result is None:
-        # cursor = open_cursor(conn)
-        # cursor.execute('INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)', (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, ))
-        # close_cursor(conn, cursor)
-        # print(f"{item_id} wurde hinzugefügt")
-        query = "INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)"
-        params = (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, )
-        db_query_wait(query, params=params)
-    # else:
-    #     print(f"{item_id} ist bereits vorhanden")
-
-    # conn.commit()
-    # conn.close()
+        query = "INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, item_subclass, item_stats) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        params = (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, item_subclass, item_stats, )
+        db_query_wait(db, query, params=params, func="add_single_item_by_id insert new item")
 
     return
-    # print(f"item_id: {item_id}")
-    # print(f"item_name: {item_name}")
-    # print(f"item_slot: {item_slot}")
-    # print(f"item_source_dungeon: {item_source_dungeon}")
-    # print(f"item_source_encounter: {item_source_encounter}")
-    #201992
 
-# add_single_item_by_id("201992")
+
+
 
 # eranog 2480
 
@@ -173,17 +180,25 @@ def get_journal_encounter(journalEncounterId, instance, locale = "en_US"):
     item_db = []
 
     for item in item_list:
-        item_name = item['item']['name']
         item_id = item['item']['id']
-        item_slot = get_item_slot(item_id)
-        if item_slot == "HOLDABLE":
-            item_slot = "OFFHAND"
+
+        item_info = get_item_info(item_id)
+
+        item_name = item['item']['name']        
+        item_slot = item_info['slot']
+        item_subclass = item_info['subclass']
+        item_stats = item_info['stats']
+        # if item_slot == "HOLDABLE":
+        #     item_slot = "OFFHAND"
         item_dict = {}
         item_dict['item_id'] = item_id
         item_dict['item_name'] = item_name
         item_dict['item_slot'] = item_slot
         item_dict['item_source_dungeon'] = item_source_dungeon
         item_dict['item_source_encounter'] = item_source_encounter
+        item_dict['item_subclass'] = item_subclass
+        item_dict['item_stats'] = item_stats
+
 
         item_db.append(item_dict)
 
@@ -231,7 +246,7 @@ def get_all_items(journalExpansionId):
 # dragonflight journal id 503
 # m+ dungeons journal id 505
 
-def db_update_items(conn):
+def db_update_items(db):
     journal_ids = ["503", "505"]
 
     all_items = []
@@ -249,14 +264,14 @@ def db_update_items(conn):
             # print(result)
             query = "SELECT item_id FROM items WHERE item_id = ?"
             params = (item['item_id'],)
-            result = db_query_wait(query, params=params, fetch="fetchone")
+            result = db_query_wait(db, query, params=params, fetch="fetchone", func="db_update_items get item from db")
             if result is None:
                 # cursor = open_cursor(conn)
                 # cursor.execute('INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)', (item['item_id'], item['item_name'], item['item_source_dungeon'], item['item_source_encounter'], item['item_slot'], ))
                 # close_cursor(conn, cursor)
-                query = "INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot) VALUES (?, ?, ?, ?, ?)"
-                params = (item['item_id'], item['item_name'], item['item_source_dungeon'], item['item_source_encounter'], item['item_slot'], )
-                db_query_wait(query, params=params)
+                query = "INSERT INTO items (item_id, item_name, item_source_dungeon, item_source_encounter, item_slot, item_subclass, item_stats) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                params = (item['item_id'], item['item_name'], item['item_source_dungeon'], item['item_source_encounter'], item['item_slot'], item['item_subclass'], item['item_stats'], )
+                db_query_wait(db, query, params=params, func="db_update_items insert new item")
                 print(f"{item['item_id']} wurde hinzugefügt")
             else:
                 print(f"{item['item_id']} ist bereits vorhanden")

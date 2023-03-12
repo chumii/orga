@@ -1,13 +1,15 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QStyledItemDelegate, QLineEdit
+from PySide6.QtWidgets import QApplication, QMainWindow
+#QStyledItemDelegate, QLineEdit
 from PySide6 import QtSql
 from PySide6.QtCore import Qt, QCoreApplication, QSortFilterProxyModel, QFileSystemWatcher
 from qt.frm_main import Ui_frm_main
 from audit import db_update_roster
 from raidbots import get_current_dps, get_player_spec, get_sim_results
+from bnet_api import db_update_items
 from datetime import date, datetime
-from helper import open_cursor, close_cursor, db_query_wait
+from helper import db_query_wait
 import logging
-import sqlite3
+# import sqlite3
 
 logging.basicConfig(filename='whatever.log', level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%d-%b-%y %H:%M:%S')
 
@@ -15,7 +17,7 @@ logging.basicConfig(filename='whatever.log', level=logging.DEBUG, format='%(asct
 db = QtSql.QSqlDatabase.addDatabase("QSQLITE")
 db.setDatabaseName("whatever.sqlite")
 
-conn = sqlite3.connect('whatever.sqlite')
+# conn = sqlite3.connect('whatever.sqlite')
 # conn.isolation_level = None
 # print(conn.isolation_level == None)
 
@@ -105,7 +107,7 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # update roster 
     def update_view(self):
-        db_update_roster(conn)
+        db_update_roster(db)
         self.mod_roster.select()
 
     #update roster rows
@@ -116,7 +118,7 @@ class Frm_main(QMainWindow, Ui_frm_main):
         # close_cursor(conn, cursor)
 
         query = "SELECT * FROM roster"
-        roster = db_query_wait(query, fetch="fetchall")
+        roster = db_query_wait(db, query, fetch="fetchall", func="update_sims get roster")
         
         today = datetime.today()
         today_formatted = today.strftime("%d.%m.%Y, %H:%M")
@@ -150,11 +152,11 @@ class Frm_main(QMainWindow, Ui_frm_main):
             # close_cursor(conn, cursor)
             query = "UPDATE roster SET spec = ?, current_dps = ?, updatedAt = ? WHERE id = ?"
             params = (spec, current_mean_dps, today_formatted, roster_id)
-            db_query_wait(query, params=params)
+            db_query_wait(db, query, params=params, func="update sims update roster")
 
             if raid_url and mplus_url:
-                get_sim_results(raid_url, conn)
-                get_sim_results(mplus_url, conn)
+                get_sim_results(db, raid_url)
+                get_sim_results(db, mplus_url)
 
         #####################################################################
         ### data.json von raidbots nur 1x holen und results nicht von url ### 
@@ -164,24 +166,33 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     #update roster rows
     def test(self):
-        lock = conn.execute("PRAGMA schema.locked").fetchone()
-        if lock [0] == 1:
-            print("DB LOCKED")
-        else:
-            print("DB NOT LOCKED")
+        # add_single_item_by_id(db, "201992")
+        db_update_items(db)
+        
 
     # add items to item list
     def grab_all_items(self, filter_dungeon="", filter_encounter=""):
-        cursor = open_cursor(conn)
-        if filter_dungeon == "" and filter_encounter == "":
-            cursor.execute("SELECT * FROM items")
-        elif filter_dungeon != "" and filter_encounter == "":
-            cursor.execute("SELECT * FROM items WHERE item_source_dungeon = ?", (filter_dungeon, ))
-        elif filter_dungeon != "" and filter_encounter != "":
-            cursor.execute("SELECT * FROM items WHERE item_source_dungeon = ? AND item_source_encounter = ?", (filter_dungeon, filter_encounter))
-        items = cursor.fetchall()
-        close_cursor(conn, cursor)
+        # cursor = open_cursor(conn)
+        # if filter_dungeon == "" and filter_encounter == "":
+        #     cursor.execute("SELECT * FROM items")
+        # elif filter_dungeon != "" and filter_encounter == "":
+        #     cursor.execute("SELECT * FROM items WHERE item_source_dungeon = ?", (filter_dungeon, ))
+        # elif filter_dungeon != "" and filter_encounter != "":
+        #     cursor.execute("SELECT * FROM items WHERE item_source_dungeon = ? AND item_source_encounter = ?", (filter_dungeon, filter_encounter))
+        # items = cursor.fetchall()
+        # close_cursor(conn, cursor)
 
+        if filter_dungeon == "" and filter_encounter == "":
+            query = "SELECT * FROM items"
+            items = db_query_wait(db, query, fetch="fetchall", func="grab_all_items no filter", print=False)
+        elif filter_dungeon != "" and filter_encounter == "":
+            query = "SELECT * FROM items WHERE item_source_dungeon = ?"
+            params = (filter_dungeon, )
+            items = db_query_wait(db, query, params=params, fetch="fetchall", func="grab_all_items filter dungeon")
+        elif filter_dungeon != "" and filter_encounter != "":
+            query = "SELECT * FROM items WHERE item_source_dungeon = ? AND item_source_encounter = ?"
+            params = (filter_dungeon, filter_encounter)
+            items = db_query_wait(db, query, params=params, fetch="fetchall", func="grab_all_items all filter")
         self.list_items.clear()
 
         items_sorted = sorted(items, key=lambda x: x[1])
@@ -191,10 +202,12 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # add dungeons to dropdown
     def grab_all_dungeons(self):
-        cursor = open_cursor(conn)
-        cursor.execute("SELECT DISTINCT item_source_dungeon FROM items")
-        dungeons = cursor.fetchall()
-        close_cursor(conn, cursor)
+        # cursor = open_cursor(conn)
+        # cursor.execute("SELECT DISTINCT item_source_dungeon FROM items")
+        # dungeons = cursor.fetchall()
+        # close_cursor(conn, cursor)
+        query = "SELECT DISTINCT item_source_dungeon FROM items"
+        dungeons = db_query_wait(db, query, fetch="fetchall", func="grab_all_dungeons get dungeons", print=False)
         
         dungeons_sorted = sorted(dungeons, key=lambda x: x[0])
 
@@ -203,13 +216,21 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     # add encounter to dropdown
     def grab_all_encounter(self, filter=""):
-        cursor = open_cursor(conn)
+        # cursor = open_cursor(conn)
+        # if filter == "":
+        #     cursor.execute("SELECT DISTINCT item_source_encounter FROM items")
+        # else:
+        #     cursor.execute("SELECT DISTINCT item_source_encounter FROM items WHERE item_source_dungeon = ?", (filter, ))
+        # encounters = cursor.fetchall()
+        # close_cursor(conn, cursor)
+
         if filter == "":
-            cursor.execute("SELECT DISTINCT item_source_encounter FROM items")
+            query = "SELECT DISTINCT item_source_encounter FROM items"
+            encounters = db_query_wait(db, query, fetch="fetchall", func="grab_all_encounter no filter", print=False)
         else:
-            cursor.execute("SELECT DISTINCT item_source_encounter FROM items WHERE item_source_dungeon = ?", (filter, ))
-        encounters = cursor.fetchall()
-        close_cursor(conn, cursor)
+            query = "SELECT DISTINCT item_source_encounter FROM items WHERE item_source_dungeon = ?"
+            params = (filter, )
+            encounters = db_query_wait(db, query, params=params, fetch="fetchall", func="grab_all_items filter")
         
         encounters_sorted = sorted(encounters, key=lambda x: x[0])
 
@@ -234,10 +255,14 @@ class Frm_main(QMainWindow, Ui_frm_main):
     def on_list_item_clicked(self, item):
         item_name = item.text()
 
-        cursor = open_cursor(conn)
-        cursor.execute("SELECT * FROM items WHERE item_name = ?", (item_name, ))
-        item = cursor.fetchone()
-        close_cursor(conn, cursor)
+        # cursor = open_cursor(conn)
+        # cursor.execute("SELECT * FROM items WHERE item_name = ?", (item_name, ))
+        # item = cursor.fetchone()
+        # close_cursor(conn, cursor)
+
+        query = "SELECT * FROM items WHERE item_name = ?"
+        params = (item_name, )
+        item = db_query_wait(db, query, params=params, fetch="fetchone", func="on_list_item_clicked get item")
 
         self.text_item_id.setText(str(item[0]))
         self.text_item_name.setText(str(item[1]))
@@ -252,11 +277,15 @@ class Frm_main(QMainWindow, Ui_frm_main):
         search_term = self.text_item_search.text()
         # print(type(search_term))
 
-        cursor = open_cursor(conn)
-        query = '''SELECT * FROM items WHERE item_id = ? OR item_name = ?'''
-        cursor.execute(query, (search_term, search_term))
-        item = cursor.fetchone()
-        close_cursor(conn, cursor)
+        # cursor = open_cursor(conn)
+        # query = '''SELECT * FROM items WHERE item_id = ? OR item_name = ?'''
+        # cursor.execute(query, (search_term, search_term))
+        # item = cursor.fetchone()
+        # close_cursor(conn, cursor)
+
+        query = "SELECT * FROM items WHERE item_id = ? OR item_name = ?"
+        params = (search_term, search_term)
+        item = db_query_wait(db, query, params=params, fetch="fetchone", func="search_items get item")
         
         if item is not None:
             matching_item = self.list_items.findItems(item[1], Qt.MatchContains)        
@@ -271,7 +300,8 @@ class Frm_main(QMainWindow, Ui_frm_main):
 
     #close application
     def closeApplication(self):
-        conn.close()
+        # conn.close()
+        db.close()
         QCoreApplication.quit()
     
 app = QApplication()
